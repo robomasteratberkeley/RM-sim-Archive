@@ -8,6 +8,6 @@ env.obstacle_width = 50
 env.obstacle_height = 50
 for _ in range(1000):
 	env.render()
-	env.step(np.array([45, 50]))
-	time.sleep(.5)
+	env.step(np.array([50, 10]))
+	# time.sleep(.5)
 
