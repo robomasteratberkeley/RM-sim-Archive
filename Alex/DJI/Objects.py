@@ -3,6 +3,8 @@ Robot and obstacle classes for DJI Robomaster AI Challenge
 """
 
 import numpy as np
+import heapq
+import cv2
 
 class Robot:
 	def __init__(self, env, enemy=False):
@@ -24,8 +26,15 @@ class Robot:
 		self.angle = 90.0
 		# need to adjust functions to account for changes in robot orientation (angle)
 
-	def move(self, other_robot, env, x_speed, y_speed, obstacles, tau):
+	def set_speed(self, x_coord, y_coord):
+		x_speed = (x_coord - self.x)/10 * self.max_x_speed
+		y_speed = (y_coord - self.y)/10 * self.max_y_speed
+		return [min(x_speed, x_speed/abs(x_speed)*self.max_x_speed, key=lambda speed: abs(speed)), min(y_speed, y_speed/abs(y_speed)*self.max_y_speed, key=lambda speed: abs(speed))]
+
+	def move(self, other_robot, env, x_coord, y_coord, obstacles, tau):
 		angle = self.angle * np.pi / 180
+
+		x_speed, y_speed = self.set_speed(x_coord, y_coord)
 
 		new_x = self.x + (x_speed*np.sin(angle) + y_speed*np.cos(angle))*tau
 		new_y = self.y + (-x_speed*np.cos(angle) + y_speed*np.sin(angle))*tau
@@ -104,7 +113,7 @@ class Robot:
 			self.gun_angle = (gun_angle * 180 / np.pi - 90) % 360
 
 	def random_action(self):
-		return (np.random.random_sample(2,) - .5)*[self.max_x_speed, self.max_y_speed]
+		return (np.random.random_sample(2,))*[800, 500]
 
 class Obstacle:
 	def __init__(self, l, r, t, b):

@@ -9,6 +9,7 @@ from gym.envs.classic_control import rendering
 from gym.utils import seeding
 from gym.envs.DJI.Objects import Robot, Obstacle
 import numpy as np
+import cv2
 
 class RobomasterEnv(gym.Env):
 	"""
@@ -29,9 +30,9 @@ class RobomasterEnv(gym.Env):
 
 	Actions:
 		Type: Box(2)
-		Num 	Action 		Min			Max
-		0		X Speed		-150.0		150.0
-		1		Y Speed		-150.0		150.0
+		Num 	Action 			Min			Max
+		0		X Position		0			800
+		1		Y Position		0			500
 
 	Reward:
 		Reward is 1 for every shot taken at the enemy.
@@ -56,7 +57,7 @@ class RobomasterEnv(gym.Env):
 
 		# Record time
 		self.game_time = 0
-		self.tau = .1
+		self.tau = .01
 
 		# Defining course dimensions
 		self.width = 800.0
@@ -87,8 +88,8 @@ class RobomasterEnv(gym.Env):
 		self.bonus_bounds = [self.width / 2 - 30, self.width / 2 + 30, self.height / 2 + 30, self.height / 2 - 30]
 
 		# Defining action space
-		act_low = np.array([-150.0, -150.0])
-		act_high = np.array([150.0, 150.0])
+		act_low = np.array([0, 0])
+		act_high = np.array([800, 500])
 		self.action_space = spaces.Box(act_low, act_high, dtype=np.float32)
 
 		# Defining observation space
