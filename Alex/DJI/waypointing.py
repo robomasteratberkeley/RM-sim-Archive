@@ -27,7 +27,7 @@ def find_path(robot, env, destination):
 	# for i in range(distance.shape[0]):
 	# 	for j in range(distance.shape[1]):
 	# 		if distance[i,j] > 10000:
-	# 			dji_map[i,j,:] = 255
+	# 			dji_map[i,j,:] = 255 # Color barriers white
 	# cv2.imshow('path', cv2.resize(cv2.flip(dji_map.transpose((1,0,2)),0), (800,500)))
 	# cv2.waitKey(0)
 	# cv2.destroyAllWindows()
@@ -59,24 +59,28 @@ def find_path(robot, env, destination):
 	distance[x,y] = 1
 	update_heap(x, y)
 	count = 0
-	while heap:
-		count += 1
-		# if count % 100 == 0:
-		# 	print(count)
-
+	while heap: 
 		start_x, start_y, next_x, next_y = heapq.heappop(heap)[1]
 
 		ret = update_paths(start_x, start_y, next_x, next_y)
 		if ret:
 
 			# FOR VISUALIZATION OF RETURNED PATH
-			# dji_map = np.zeros((80,50,3))
-			# path = paths[(next_x, next_y)]
-			# for coord in path:
-			# 	dji_map[coord[0],coord[1],:] = 255
-			# cv2.imshow('path', cv2.resize(cv2.flip(dji_map.transpose((1,0,2)),0), (800,500)))
-			# cv2.waitKey(0)
-			# cv2.destroyAllWindows()
+			# try: # dji_map may or may not be already initialized earlier in code
+			# 	path = paths[(next_x, next_y)]
+			# 	for coord in path:
+			# 		dji_map[coord[0],coord[1],1] = 100 # Color the path green
+			# 	cv2.imshow('path', cv2.resize(cv2.flip(dji_map.transpose((1,0,2)),0), (800,500)))
+			# 	cv2.waitKey(0)
+			# 	cv2.destroyAllWindows()
+			# except:
+			# 	dji_map = np.zeros((80,50,3))
+			# 	path = paths[(next_x, next_y)]
+			# 	for coord in path:
+			# 		dji_map[coord[0],coord[1],1] = 100
+			# 	cv2.imshow('path', cv2.resize(cv2.flip(dji_map.transpose((1,0,2)),0), (800,500)))
+			# 	cv2.waitKey(0)
+			# 	cv2.destroyAllWindows()
 
 			return np.array(paths[(next_x, next_y)])*10
 	print("Path not found")
