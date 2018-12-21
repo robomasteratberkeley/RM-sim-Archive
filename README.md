@@ -5,9 +5,12 @@
 1. Install OpenAI Gym with `pip install gym` and OpenCV with `pip install opencv-python`.
 
 2. *This will be fixed once we improve the repo structure*
+
+
 Clone the repo anywhere, then copy the entire `/DJI` folder into `<python-packages-root-directory>/gym/env/`.
 
 3. In `<python-packages-root-directory>/gym/env/__init__.py`, add the following code parallel to similar clauses:
+
 
 `register(
     id='Robomaster-v0',
