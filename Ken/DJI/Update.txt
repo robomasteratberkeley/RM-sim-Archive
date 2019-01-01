@@ -1,0 +1,10 @@
+robomaster.py
+-RobomasterEnv step method
+---1. change enemy's action to a fixed action set
+---2.add another argument to the method original self, action, now self, robot_action, enemy_action
+
+waypointing.py
+-find_path function
+---1. in the end if the path is not found, now print(destination, "path not found")
+---2.add new functions, find_path_between_two_coordinates, find_path_between_multiple_points,  patrol
+-add documents for all functions
