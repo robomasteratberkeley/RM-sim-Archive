@@ -6,10 +6,6 @@ import cv2
 import waypointing as wp
 
 env = gym.make('Robomaster-v0').unwrapped
-#print(env.unwrapped)
-env.reset()
-env.obstacle_width = 50
-env.obstacle_height = 50
 
 #path = wp.find_path(env.robot, env, [400,300])
 #path_for_enemy = wp.find_path(env.enemy, env, [600,400])
@@ -25,3 +21,5 @@ for _ in range(10000):
 	# path = wp.new_path(env.robot, path)
 	#path_for_enemy = new_path(env.enemy, path_for_enemy)
 	# time.sleep(.1)
+
+env.viewer.close()

@@ -5,6 +5,8 @@ from utils import *
 """
 All strategies shall implement the abstract class Strategy
 
+A strategy takes in an env state and returns an action
+
 Note that users cannot create new instances of Strategy.
 They use the CLASS OBJECT for operations
 """

@@ -55,11 +55,17 @@ class Vector(Point):
 
 class Team:
 
-	def __init__(self, color, name):
-		self.color = color
+	def __init__(self, name):
 		self.name = name
 		self.robots = []
 		self.enemy = None
+
+		if self.name == "BLUE":
+			self.dark_color = COLOR_DARKBLUE
+			self.color = COLOR_BLUE
+		else:
+			self.dark_color = COLOR_DARKRED
+			self.color = COLOR_RED
 
 	def addRobot(self, robot):
 		self.robots.append(robot)
@@ -77,3 +83,12 @@ def toRadian(deg):
 
 def toDegree(rad):
 	return rad * 180 / math.pi
+
+
+COLOR_BLUE = (0, 0, 1)
+COLOR_DARKBLUE = (0, 0, 0.5)
+COLOR_RED = (1, 0, 0)
+COLOR_DARKRED = (0.5, 0, 0)
+COLOR_GREEN = (0, 1, 0)
+COLOR_BLACK = (0, 0, 0)
+COLOR_WHITE = (1, 1, 1)

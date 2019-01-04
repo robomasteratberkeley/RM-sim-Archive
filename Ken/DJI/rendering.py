@@ -310,6 +310,16 @@ class Image(Geom):
     def render1(self):
         self.img.blit(-self.width/2, -self.height/2, width=self.width, height=self.height)
 
+class Circle(FilledPolygon):
+    def __init__(self, center, radius):
+        v = []
+        res = 20
+        for i in range(res):
+            ang = 2*math.pi*i / res
+            v.append((math.cos(ang)*radius + center.x, math.sin(ang)*radius + center.y))
+        super().__init__(v)
+
+
 # ================================================================
 
 class SimpleImageViewer(object):
@@ -353,6 +363,7 @@ class SimpleImageViewer(object):
         self.window.dispatch_events()
         texture.blit(0, 0) # draw
         self.window.flip()
+
     def close(self):
         if self.isopen:
             self.window.close()

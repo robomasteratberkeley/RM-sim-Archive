@@ -61,9 +61,8 @@ class RobomasterEnv(gym.Env):
 	# }
 
 	# Defining course dimensions
-	start_zone_sidelength = 133
-	width = 800.0
-	height = 500.0
+	width = 800
+	height = 500
 	tau = .01
 
 	def __init__(self):
@@ -72,39 +71,53 @@ class RobomasterEnv(gym.Env):
 		self.game_time = 0
 
 		self.characters = {
-		    "robots": [],
 			"obstacles": [],
 			"zones": [],
+			"robots": [],
 			"bullets": [],
 		}
 
 		# Initialize teams
-		BLUE = Team((0, 0, 1), "BLUE")
-		RED = Team((1, 0, 0), "RED")
+		BLUE = Team("BLUE")
+		RED = Team("RED")
 		BLUE.enemy, RED.enemy = RED, BLUE
 		self.my_team, self.enemy_team = BLUE, RED
 
 		# Initialize robots
-		myRobot = AttackRobot(self, BLUE, Point(350, 320), 0)
+		myRobot = AttackRobot(self, BLUE, Point(350, 320), 180)
 		enemyRobot = DummyRobot(self, RED, Point(750, 450), 180)
 		myRobot.load(40)
 		enemyRobot.load(40)
 		self.characters['robots'] = [myRobot, enemyRobot]
 
 		# Defining course obstacles
-		obstacleParams = [(Point(0, 220), 80, 30), (Point(120, 370), 80, 30),
-			(Point(180, 150), 30, 120), (Point(310, 0), 30, 200)]
 		self.characters['obstacles'] = [Obstacle(p[0], p[1], p[2])
-		    for p in obstacleParams]
+		    for p in [(Point(325, 0), 25, 100), (Point(450, 400), 25, 100),
+				(Point(350, 238), 100, 25), (Point(580, 100), 100, 25),
+				(Point(120, 375), 100, 25), (Point(140, 140), 25, 100),
+				(Point(635, 260), 25, 100)]]
 
 		# Team start areas
-		myStartArea = StartingZone(self, BLUE)
-		enemyStartArea = StartingZone(self, RED)
-		self.characters['zones'] = [myStartArea, enemyStartArea]
+		self.characters['zones'] = \
+		    [StartingZone(p[0], p[1]) for p in [(Point(0, 0), BLUE),
+			(Point(700, 0), BLUE), (Point(0, 400), RED), (Point(700, 400), RED)]] \
+			+ [DefenseBuffZone(p[0], p[1]) for p in [
+			(Point(120, 275), BLUE), (Point(580, 125), RED)]] \
+			+ [LoadingZone(p[0], p[1]) for p in [
+			(Point(350, 0), BLUE), (Point(350, 400), RED)]]
 
-		self.background = Rectangle(Point(0, 0), self.width, self.height, 0)
+		# self.background = Rectangle(Point(0, 0), self.width, self.height, 0)
 
-		self.viewer = None
+		self.viewer = rendering.Viewer(self.width, self.height)
+
+		boundary = rendering.PolyLine([(1, 0), (1, 499), (800, 499), (800, 0)], True)
+		boundary.set_color(COLOR_BLACK[0], COLOR_BLACK[1], COLOR_BLACK[2])
+		self.viewer.add_geom(boundary)
+
+		for char in self.characters['obstacles'] + self.characters['zones']:
+			geoms = char.render()
+			for geom in geoms:
+				self.viewer.add_geom(geom)
 		# Load area
 
 		# Defense Buff area
@@ -184,6 +197,7 @@ class RobomasterEnv(gym.Env):
 
 	# Resets the field to the starting positions
 	def reset(self):
+		self.viewer.close()
 		self.__init__()
 		# self.robot.x, self.robot.y = self.robot.width / 2, self.robot.length / 2
 		# self.enemy.x, self.enemy.y = self.width - self.enemy.width / 2, self.height - self.enemy.length / 2
@@ -196,120 +210,17 @@ class RobomasterEnv(gym.Env):
 
 	# Renders the field for human observation
 	def render(self, mode='human'):
-		screen_width = 800
-		screen_height = 500
 
-		world_width = self.width
-		scale = screen_width / world_width
-
-		# # Function to make box obstacles
-		# def make_obstacle(obstacle):
-		# 	l, r, t, b = obstacle.l, obstacle.r, obstacle.t, obstacle.b
-		# 	obstacle = rendering.FilledPolygon([(l, b), (l, t), (r, t), (r, b)])
-		#
-		# 	return obstacle
-		#
-		# def make_zone(zone, color):
-		# 	l, r, t, b = zone
-		# 	zone = rendering.FilledPolygon([(l, b), (l, t), (r, t), (r, b)])
-		# 	zone.set_color(color[0], color[1], color[2])
-		#
-		# 	return zone
-
-		# Creates viewer object, robots, and obstacles
-		if self.viewer is None:
-			self.viewer = rendering.Viewer(screen_width, screen_height)
-
-		self.viewer.resetGeoms()
-		# 	# Add starting zones
-		# 	self.viewer.add_geom(make_zone(self.team1_start, [0,0,0.5]))
-		# 	self.viewer.add_geom(make_zone(self.team2_start, [0.5,0,0]))
-		#
-		# 	# Add bonus zone
-		# 	self.viewer.add_geom(make_zone(self.bonus_bounds, [0.8, 0.8, 0]))
-		#
-		# 	# Add robot geometry
-		# 	l, r, t, b = -self.robot.width / 2, self.robot.width / 2, -self.robot.length / 2, self.robot.length / 2
-		# 	robot = rendering.FilledPolygon([(l, b), (l, t), (r, t), (r, b)])
-		# 	robot.set_color(0, 0, 1)
-		# 	self.robot_trans = rendering.Transform()
-		# 	robot.add_attr(self.robot_trans)
-		#
-		# 	l, r, t, b = -self.robot.gun_width / 2, self.robot.gun_width / 2, -self.robot.gun_width / 2, self.robot.gun_length - self.robot.gun_width / 2
-		# 	robot_gun = rendering.FilledPolygon([(l, b), (l, t), (r, t), (r, b)])
-		# 	self.robot_guntrans = rendering.Transform()
-		# 	robot_gun.add_attr(self.robot_guntrans)
-		#
-		# 	self.viewer.add_geom(robot)
-		# 	self.viewer.add_geom(robot_gun)
-		#
-		# 	# Add enemy geometry
-		# 	l, r, t, b = -self.enemy.width / 2, self.enemy.width / 2, -self.enemy.length / 2, self.enemy.length / 2
-		# 	enemy = rendering.FilledPolygon([(l, b), (l, t), (r, t), (r, b)])
-		# 	enemy.set_color(1, 0, 0)
-		# 	self.enemy_trans = rendering.Transform()
-		# 	enemy.add_attr(self.enemy_trans)
-		#
-		# 	l, r, t, b = -self.enemy.gun_width / 2, self.enemy.gun_width / 2, -self.enemy.gun_width / 2, self.enemy.gun_length - self.enemy.gun_width / 2
-		# 	enemy_gun = rendering.FilledPolygon([(l, b), (l, t), (r, t), (r, b)])
-		# 	self.enemy_guntrans = rendering.Transform()
-		# 	enemy_gun.add_attr(self.enemy_guntrans)
-		#
-		# 	self.viewer.add_geom(enemy)
-		# 	self.viewer.add_geom(enemy_gun)
-		#
-		# 	# Add obstacles
-		# 	for obstacle in self.obstacles:
-		# 		self.viewer.add_geom(make_obstacle(obstacle))
-		#
-		# if self.state is None: return None
-		#
-		# x = self.state
-		#
-		# # Render location for robot
-		# robotx, roboty = x[0]*scale, x[1]*scale
-		# gun_angle = x[2]*np.pi/180
-		# self.robot_trans.set_translation(robotx, roboty)
-		# self.robot_trans.set_rotation((self.robot.angle - 90)*np.pi/180)
-		# self.robot_guntrans.set_translation(robotx, roboty)
-		# self.robot_guntrans.set_rotation(gun_angle)
-		#
-		# # Render location for enemy
-		# enemyx, enemyy = x[3]*scale, x[4]*scale
-		# enemy_gun_angle = x[5]*np.pi/180
-		# self.enemy_trans.set_translation(enemyx, enemyy)
-		# self.enemy_guntrans.set_translation(enemyx, enemyy)
-		# self.enemy_guntrans.set_rotation(enemy_gun_angle)
-		#
-
-		self.viewer.add_geom(self.background.render((1, 1, 1)))
-
-		for zone in self.characters['zones']:
-			geom = zone.render()
-			if geom:
-				self.viewer.add_geom(geom)
-
-		for obs in self.characters['obstacles']:
-			geom = obs.render()
-			if geom:
-				self.viewer.add_geom(geom)
-
-		for robot in self.characters['robots']:
-			geoms = robot.render()
-			if geoms:
-				for geom in geoms:
-					self.viewer.add_geom(geom)
-
-		for bullet in self.characters['bullets']:
-			geom = bullet.render()
-			if geom:
-				self.viewer.add_geom(geom)
+		for char in self.characters['robots'] + self.characters['bullets']:
+			geoms = char.render()
+			for geom in geoms:
+				self.viewer.add_onetime(geom)
 
 		return self.viewer.render(return_rgb_array = mode == 'rgb_array')
 
 	def isObstructed(self, rec, robot):
 		for ob in self.impermissibles(robot):
-			if ob.intersects(rec) or ob.intersects(robot.gun):
+			if ob.intersects(rec):
 				return True
 		for v in robot.vertices:
 			if not self.isLegal(v):

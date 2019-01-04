@@ -16,7 +16,7 @@ Every object is an implementation of the abstract class Character
 """
 class Character:
 
-	color = (0, 0, 0)
+	color = COLOR_BLACK
 
 	def act(self, env):
 		pass
@@ -70,33 +70,38 @@ class Rectangle(Character):
 		self.angle = deg
 		self.angle_radian = deg / 180 * math.pi
 
+	def contains(self, point):
+		return self.contains_any([point])
+
 	"""
 	Check if a point is contained by self. Uses some messy linalg. Please Suggest
 	better implementation if possible.
 	"""
-	def contains(self, point):
+	def contains_any(self, points):
 		error_threshold = 0.01
-
-		goal_vec = point.diff(self.bottom_left)
 
 		width_vec = self.vertices[1].diff(self.bottom_left)
 		height_vec = self.vertices[3].diff(self.bottom_left)
 
-		width_proj = goal_vec.project(width_vec)
-		height_proj = goal_vec.project(height_vec)
+		for point in points:
+			goal_vec = point.diff(self.bottom_left)
+			width_proj = goal_vec.project(width_vec)
+			height_proj = goal_vec.project(height_vec)
 
-		return width_proj.length - self.width < error_threshold and \
+			if width_proj.length - self.width < error_threshold and \
 		       height_proj.length - self.height < error_threshold and \
 		       width_proj.dot(width_vec) >= 0 and \
-			   height_proj.dot(height_vec) >= 0
+			   height_proj.dot(height_vec) >= 0:
+			   return True
+
+		return False
 
 	"""
 	Checks if two rectangles intersect
 	IT DOESN'T CONSIDER SOME CASES which I don't think are necessary for our app
 	"""
 	def intersects(self, other):
-		return any([self.contains(v) for v in other.vertices] + \
-		    [other.contains(v) for v in self.vertices])
+		return self.contains_any(other.vertices) or other.contains_any(self.vertices)
 
 	def blocks(self, point, vec):
 		return self.contains(point)
@@ -111,7 +116,7 @@ class Rectangle(Character):
 		if not color:
 			color = self.color
 		rec.set_color(color[0], color[1], color[2])
-		return rec
+		return [rec]
 
 
 """
@@ -150,15 +155,22 @@ Permissble and penetrable areas in the field are described by class Zone
 """
 class Zone(uprightRectangle):
 
-	def __init__(self, bottom_left, width, height, team):
-		super().__init__(bottom_left, width, height)
+	sidelength = 100
+
+	def __init__(self, bottom_left, team):
+		super().__init__(bottom_left, 100, 100)
 		self.team = team
+		self.color = team.dark_color
 
 	def penetrable(self):
 		return True
 
 	def permissble(self, team):
 		return True
+
+	def render(self):
+		return super().render() + Rectangle(self.bottom_left.move(8, 8), \
+		    self.width - 16, self.height - 16).render(COLOR_WHITE)
 
 
 """
@@ -196,7 +208,12 @@ class LoadingZone(Zone):
 		return self.life
 
 	def reset(self):
-		self.life = 3
+		self.life = 2
+
+	def render(self):
+		circle = rendering.Circle(self.center, 12)
+		circle.set_color(self.color[0], self.color[1], self.color[2])
+		return super().render() + [circle]
 
 
 """
@@ -208,6 +225,11 @@ class DefenseBuffZone(Zone):
 
 	active = True
 
+	def __init__(self, bottom_left, team):
+		super().__init__(bottom_left, team)
+		self.d_helper = Rectangle(self.center.move(0, -15), \
+		    15 * 1.414, 15 * 1.414, 45)
+
 	def activate(self):
 		if self.active:
 			self.team.addDefenseBuff(30)
@@ -216,18 +238,13 @@ class DefenseBuffZone(Zone):
 	def reset(self):
 		self.active = True
 
+	def render(self):
+		return super().render() + self.d_helper.render(self.color)
+
 
 class StartingZone(Zone):
 
-	def __init__(self, env, team):
-		sidelength = env.start_zone_sidelength
-		if team.name == "BLUE":
-			Rectangle.__init__(self, Point(0, 0), sidelength, sidelength)
-			self.color = (0, 0, 0.5)
-		elif team.name == "RED":
-			point = Point(env.width - sidelength, env.height - sidelength)
-			Rectangle.__init__(self, point, sidelength, sidelength)
-			self.color = (0.5, 0, 0)
+	pass
 
 
 """
@@ -235,7 +252,7 @@ Describes a bullet. Currently modeled as having constant speed and no volume
 """
 class Bullet:
 
-	damage = 20
+	damage = 50
 	range = float('inf')
 
 	def __init__(self, point, dir, team, env):
@@ -276,7 +293,7 @@ class Bullet:
 		self.active = False
 
 	def render(self):
-		return Rectangle.render(Rectangle(self.point.move(-2.5, -2.5), 5, 5, 0), (0, 1, 0))
+		return Rectangle.render(Rectangle(self.point.move(-2.5, -2.5), 5, 5, 0), COLOR_GREEN)
 
 """
 The robot object -
@@ -297,7 +314,7 @@ class Robot(Rectangle):
 	max_rotation_speed = 2
 
 	def __init__(self, env, team, bottom_left, angle=0):
-		self.health = 100
+		self.health = 2000
 		self.gun_angle = 0
 		self.env = env
 
@@ -312,8 +329,8 @@ class Robot(Rectangle):
 
 	def render(self):
 		if self.alive():
-			return [super().render(), Rectangle.render(self.gun, self.color)]
-		return [super().render()]
+			return super().render() + Rectangle.render(self.gun, self.color)
+		return super().render()
 
 	def alive(self):
 		return self.health > 0
