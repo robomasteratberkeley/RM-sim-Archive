@@ -70,8 +70,8 @@ class Team:
 	def addRobot(self, robot):
 		self.robots.append(robot)
 
-	def addDefenseBuff(time):
-		for r in robots:
+	def addDefenseBuff(self, time):
+		for r in self.robots:
 			r.addDefenseBuff(time)
 
 	def totalHealth(self):
@@ -83,6 +83,9 @@ def toRadian(deg):
 
 def toDegree(rad):
 	return rad * 180 / math.pi
+
+def floatEquals(a, b, error_threshold=0.01):
+	return abs(a - b) < error_threshold
 
 
 COLOR_BLUE = (0, 0, 1)

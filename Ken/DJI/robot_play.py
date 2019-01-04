@@ -12,7 +12,7 @@ env = gym.make('Robomaster-v0').unwrapped
 # path = wp.patrol(env.robot, env, 4, [[40, 400], [100, 300], [400, 300], [400, 450], [40, 400]])
 # robot_destination = np.array([0,0])
 #enemy_destination = np.array([0,0])
-for _ in range(10000):
+for _ in range(18000):
 	env.render()
 	env.step()
 	# if path is not None and len(path) > 0:

@@ -70,31 +70,36 @@ class Rectangle(Character):
 		self.angle = deg
 		self.angle_radian = deg / 180 * math.pi
 
-	def contains(self, point):
-		return self.contains_any([point])
-
 	"""
 	Check if a point is contained by self. Uses some messy linalg. Please Suggest
 	better implementation if possible.
 	"""
-	def contains_any(self, points):
+	def contains(self, point):
+		return self.contains_any([point])
+
+	def contains_list(self, points):
 		error_threshold = 0.01
 
 		width_vec = self.vertices[1].diff(self.bottom_left)
 		height_vec = self.vertices[3].diff(self.bottom_left)
 
-		for point in points:
+		def contains_point(point):
 			goal_vec = point.diff(self.bottom_left)
 			width_proj = goal_vec.project(width_vec)
 			height_proj = goal_vec.project(height_vec)
 
-			if width_proj.length - self.width < error_threshold and \
+			return width_proj.length - self.width < error_threshold and \
 		       height_proj.length - self.height < error_threshold and \
 		       width_proj.dot(width_vec) >= 0 and \
-			   height_proj.dot(height_vec) >= 0:
-			   return True
+			   height_proj.dot(height_vec) >= 0
 
-		return False
+		return [contains_point(p) for p in points]
+
+	def contains_any(self, points):
+		return any(self.contains_list(points))
+
+	def contains_all(self, points):
+		return all(self.contains_list(points))
 
 	"""
 	Checks if two rectangles intersect
@@ -178,9 +183,12 @@ Loading zones that provide 17mm bullets
 """
 class LoadingZone(Zone):
 
-	# color =
+	def __init__(self, bottom_left, team):
+		super().__init__(bottom_left, team)
+		team.loadingZone = self
 
-	life = 3
+	fills = 2
+	tolerance_radius = 3
 
 	"""
 	Enemy loading zone is modeled as impermissible
@@ -189,26 +197,24 @@ class LoadingZone(Zone):
 		return self.team == team
 
 	"""
-	Checks if the robot is aligned with the bullet supply machiary
+	Checks if the robot is aligned with the bullet supply machinary
 	"""
 	def aligned(self, robot):
-		# Suggested implementation:
-		# Model robot's buleet receiver as a Rectangle object
-		# And use Rectangle.contains
-		return True
+		return floatEquals(self.center.x, robot.center.x, self.tolerance_radius) and \
+		    floatEquals(self.center.y, robot.center.y, self.tolerance_radius)
 
 	def load(self, robot):
-		if self.life <= 0:
+		if self.fills <= 0:
+			print("Team " + robot.team.name + " has no more reloads available.")
 			return
 		if self.aligned(robot):
+			print("Reload successful on robot " + str(robot.id))
 			robot.load(100)
-		self.life -= 1
-
-	def life(self):
-		return self.life
+			robot.freeze(10)
+		self.fills -= 1
 
 	def reset(self):
-		self.life = 2
+		self.fills = 2
 
 	def render(self):
 		circle = rendering.Circle(self.center, 12)
@@ -229,6 +235,13 @@ class DefenseBuffZone(Zone):
 		super().__init__(bottom_left, team)
 		self.d_helper = Rectangle(self.center.move(0, -15), \
 		    15 * 1.414, 15 * 1.414, 45)
+		team.defenseBuffZone = self
+		self.touch_rec = [0, 0, 0, 0]
+
+	def touch(self, robot):
+		self.touch_rec[robot.id] += 1
+		if self.touch_rec[robot.id] == 500:
+			self.activate()
 
 	def activate(self):
 		if self.active:
@@ -293,7 +306,7 @@ class Bullet:
 		self.active = False
 
 	def render(self):
-		return Rectangle.render(Rectangle(self.point.move(-2.5, -2.5), 5, 5, 0), COLOR_GREEN)
+		return [rendering.Circle(self.point, 2)]
 
 """
 The robot object -
@@ -305,26 +318,26 @@ class Robot(Rectangle):
 
 	width = 50.0
 	height = 30.0
+	health = 2000
 	gun_width = height / 4
 	gun_length = width
 	range = float('inf') # More on this later
 
-	max_forward_speed = 150
-	max_sideway_speed = 100
-	max_rotation_speed = 2
+	max_forward_speed = 15
+	max_sideway_speed = 10
+	max_rotation_speed = 1.5
 
 	def __init__(self, env, team, bottom_left, angle=0):
-		self.health = 2000
 		self.gun_angle = 0
 		self.env = env
 
 		self.team = team
 		self.color = team.color
 		team.addRobot(self)
-		self.defenseBuffTimer = 0
+		self.defenseBuffTimer, self.freezeTimer = 0, 0
 		super().__init__(bottom_left, Robot.width, Robot.height, angle)
 		self.gun = self.getGun()
-		self.gun_heat = 0
+		self.heat = 0
 		self.bullet = 0
 
 	def render(self):
@@ -341,11 +354,14 @@ class Robot(Rectangle):
 	def load(self, num):
 		self.bullet += num
 
+	def freeze(self, num):
+		self.freezeTimer += num
+
 	def hasDefenseBuff(self):
 		return self.defenseBuffTimer > 0
 
 	def addDefenseBuff(self, time):
-		self.defenseBuffTimer = time * 1000
+		self.defenseBuffTimer = time * 100
 
 	"""
 	Determine a strategy based on information in self.env
@@ -359,17 +375,26 @@ class Robot(Rectangle):
 	"""
 	def act(self):
 		if self.alive():
-			self.defenseBuffTimer -= 1
+			for z in self.env.defenseBuffZones:
+				if z.contains_all(self.vertices):
+					z.touch(self)
+			if self.freezeTimer > 0:
+				self.freezeTimer -= 1
+				return
 			strategy = self.getStrategy()
 			if strategy:
-				action = strategy.decide(self, self)
+				action = strategy.decide(self)
 				if action:
 					if not type(action) == list:
 						return self.execute(action)
 					for action_part in action:
 						self.execute(action_part)
+		self.defenseBuffTimer = max(0, self.defenseBuffTimer - 1)
+		self.freezeTimer = max(0, self.freezeTimer - 1)
 
 	def execute(self, action):
+		if self.freezeTimer > 0 and not action.frozenOk():
+			return
 		result_rec = action.resolve(self)
 		if result_rec == None or self.env.isObstructed(result_rec, self):
 			return
@@ -392,6 +417,8 @@ class Robot(Rectangle):
 
 class DummyRobot(Robot):
 
+	health = 10000
+
 	def getStrategy(self):
 		return DoNothing
 
@@ -405,93 +432,5 @@ class CrazyRobot(Robot):
 class AttackRobot(Robot):
 
 	def getStrategy(self):
-		return AimAndFire
-
-	# def set_speed(self, x_coord, y_coord):
-	# 	x_speed = (x_coord - self.x)/10 * self.max_x_speed
-	# 	y_speed = (y_coord - self.y)/10 * self.max_y_speed
-	# 	return [min(x_speed, x_speed/abs(x_speed)*self.max_x_speed, key=lambda speed: abs(speed)), min(y_speed, y_speed/abs(y_speed)*self.max_y_speed, key=lambda speed: abs(speed))]
-	#
-	# def move(self, other_robot, env, x_coord, y_coord, obstacles, tau):
-	# 	angle = self.angle * np.pi / 180
-	#
-	# 	x_speed, y_speed = self.set_speed(x_coord, y_coord)
-	#
-	# 	new_x = self.x + (x_speed*np.sin(angle) + y_speed*np.cos(angle))*tau
-	# 	new_y = self.y + (-x_speed*np.cos(angle) + y_speed*np.sin(angle))*tau
-	#
-	# 	# Check for collisions
-	#
-	# 	# Outside Bounds
-	# 	if new_x < self.width / 2:
-	# 		new_x + self.width / 2
-	# 	elif new_x + self.width / 2 > env.width:
-	# 		new_x = env.width - self.width / 2
-	#
-	# 	if new_y < self.length / 2:
-	# 		new_y = self.length / 2
-	# 	elif new_y + self.length / 2 > env.height:
-	# 		new_y = env.height - self.length / 2
-	#
-	# 	# Obstacles
-	# 	for obstacle in obstacles:
-	# 		l = obstacle.l - self.width / 2
-	# 		r = obstacle.r + self.width / 2
-	# 		b = obstacle.b - self.length / 2
-	# 		t = obstacle.t + self.length / 2
-	# 		if l < new_x < r and b < new_y < t:
-	# 			if self.x <= l:
-	# 				new_x = l
-	# 			elif self.x >= r:
-	# 				new_x = r
-	# 			if self.y <= b:
-	# 				new_y = b
-	# 			elif self.y >= t:
-	# 				new_y = t
-	#
-	# 	# Other robot
-	# 	l = other_robot.x - other_robot.width / 2 - self.width / 2
-	# 	r = other_robot.x + other_robot.width / 2 + self.width / 2
-	# 	b = other_robot.y - other_robot.length / 2 - self.length / 2
-	# 	t = other_robot.y + other_robot.length / 2 + self.length / 2
-	#
-	# 	if l < new_x < r and b < new_y < t:
-	# 		if self.x <= l:
-	# 			new_x = l
-	# 		elif self.x >= r:
-	# 			new_x = r
-	# 		if self.y <= b:
-	# 			new_y = b
-	# 		elif self.y >= t:
-	# 			new_y = t
-	#
-	# 	self.x, self.y = new_x, new_y
-	#
-	# def aim(self, other, obstacles):
-	# 	if self.x == other.x:
-	# 		if self.y > other.y:
-	# 			gun_angle = -np.pi / 2
-	# 		else:
-	# 			gun_angle = np.pi / 2
-	# 	elif self.x < other.x:
-	# 		gun_angle = np.arctan((self.y - other.y) / (self.x - other.x))
-	# 	else:
-	# 		gun_angle = np.arctan((self.y - other.y) / (self.x - other.x)) + np.pi
-	#
-	# 	# Check for visual obstruction
-	# 	x, y = self.x, self.y
-	# 	step = 20
-	#
-	# 	obstructed = False
-	# 	while abs(x - self.x) < abs(other.x - self.x):
-	# 		for obstacle in obstacles:
-	# 			if obstacle.surrounds(x, y):
-	# 				obstructed = True # Return and skips the step of updating self.gun_angle
-	# 		x += step * np.cos(gun_angle)
-	# 		y += step * np.sin(gun_angle)
-	#
-	# 	if not obstructed:
-	# 		self.gun_angle = (gun_angle * 180 / np.pi - 90) % 360
-	#
-	# def random_action(self):
-	# 	return (np.random.random_sample(2,))*[800, 500]
+		target = self.team.enemy.robots[0]
+		return AimAndFire(target)

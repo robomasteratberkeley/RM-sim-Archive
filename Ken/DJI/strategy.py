@@ -7,15 +7,15 @@ All strategies shall implement the abstract class Strategy
 
 A strategy takes in an env state and returns an action
 
-Note that users cannot create new instances of Strategy.
+Note that users cannot create new instances of some Strategies.
 They use the CLASS OBJECT for operations
 """
 class Strategy:
 
-    def decide(self, robot):
+    def decide(robot):
         pass
 
-    def name(self):
+    def name():
         pass
 
 
@@ -23,25 +23,25 @@ class Patrol(Strategy):
 
     key_points = [Point(0, 0)]
 
-    def decide(self, robot):
+    def decide(robot):
         pass
 
-    def name(self):
+    def name():
         return "PATROL"
 
 
 class DoNothing(Strategy):
 
-    def decide(self, robot):
+    def decide(robot):
         return None
 
-    def name(self):
+    def name():
         return "DO NOTHING"
 
 
 class SpinAndFire(Strategy):
 
-    def decide(self, robot):
+    def decide(robot):
         actions = []
         if robot.angle % 90 == 0:
             actions.append(Fire())
@@ -51,17 +51,21 @@ class SpinAndFire(Strategy):
             return actions + [Rotate(270)]
         return actions + [Rotate(0)]
 
-    def name(self):
+    def name():
         return "SPIN&FIRE"
 
 
 class AimAndFire(Strategy):
 
+    def __init__(self, target):
+        self.target = target
+
     def decide(self, robot):
-        target = robot.team.enemy.robots[0]
-        if robot.angleTo(target) == robot.angle:
-            return Fire()
-        return Aim(target)
+        if robot.angleTo(self.target) == robot.angle:
+            if robot.bullet > 0:
+                return Fire
+            return RefillCommand
+        return Aim(self.target)
 
 
 """
@@ -71,7 +75,10 @@ It changes the state of the robot upon resolve(robot)
 """
 class Action:
 
-    def resolve(self, robot):
+    def frozenOk():
+        return False
+
+    def resolve(robot):
         pass
 
 
@@ -106,7 +113,17 @@ class Aim(Action):
 
 class Fire(Action):
 
-    def resolve(self, robot):
+    def frozenOk():
+        return True
+
+    def resolve(robot):
         if robot.bullet > 0:
             robot.env.characters['bullets'].append(Bullet(robot.gun.center, robot.angle + robot.gun_angle, robot.team, robot.env))
             robot.bullet -= 1
+
+
+class RefillCommand(Action):
+
+    def resolve(robot):
+        print(robot.team.name + " team issued reload command!")
+        robot.team.loadingZone.load(robot)

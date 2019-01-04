@@ -63,7 +63,7 @@ class RobomasterEnv(gym.Env):
 	# Defining course dimensions
 	width = 800
 	height = 500
-	tau = .01
+	tau = 1
 
 	def __init__(self):
 
@@ -84,11 +84,13 @@ class RobomasterEnv(gym.Env):
 		self.my_team, self.enemy_team = BLUE, RED
 
 		# Initialize robots
-		myRobot = AttackRobot(self, BLUE, Point(350, 320), 180)
-		enemyRobot = DummyRobot(self, RED, Point(750, 450), 180)
+		myRobot = AttackRobot(self, BLUE, Point(375, 35), 0)
+		enemyRobot = DummyRobot(self, RED, Point(590, 135), 0)
 		myRobot.load(40)
 		enemyRobot.load(40)
 		self.characters['robots'] = [myRobot, enemyRobot]
+		for i in range(len(self.characters['robots'])):
+			self.characters['robots'][i].id = i
 
 		# Defining course obstacles
 		self.characters['obstacles'] = [Obstacle(p[0], p[1], p[2])
@@ -98,13 +100,17 @@ class RobomasterEnv(gym.Env):
 				(Point(635, 260), 25, 100)]]
 
 		# Team start areas
-		self.characters['zones'] = \
-		    [StartingZone(p[0], p[1]) for p in [(Point(0, 0), BLUE),
-			(Point(700, 0), BLUE), (Point(0, 400), RED), (Point(700, 400), RED)]] \
-			+ [DefenseBuffZone(p[0], p[1]) for p in [
-			(Point(120, 275), BLUE), (Point(580, 125), RED)]] \
-			+ [LoadingZone(p[0], p[1]) for p in [
-			(Point(350, 0), BLUE), (Point(350, 400), RED)]]
+		self.startingZones = [StartingZone(p[0], p[1]) for p in [(Point(0, 0), BLUE),
+		(Point(700, 0), BLUE), (Point(0, 400), RED), (Point(700, 400), RED)]]
+
+		self.defenseBuffZones = [DefenseBuffZone(p[0], p[1]) for p in [
+		(Point(120, 275), BLUE), (Point(580, 125), RED)]]
+
+		self.loadingZones = [LoadingZone(p[0], p[1]) for p in [
+		(Point(350, 0), BLUE), (Point(350, 400), RED)]]
+
+		self.characters['zones'] = self.startingZones + self.defenseBuffZones + \
+		    self.loadingZones
 
 		# self.background = Rectangle(Point(0, 0), self.width, self.height, 0)
 
@@ -118,32 +124,6 @@ class RobomasterEnv(gym.Env):
 			geoms = char.render()
 			for geom in geoms:
 				self.viewer.add_geom(geom)
-		# Load area
-
-		# Defense Buff area
-
-		# # Bonus area
-		# self.bonus_bounds = [self.width / 2 - 30, self.width / 2 + 30, self.height / 2 + 30, self.height / 2 - 30]
-		#
-		# # Defining action space
-		# act_low = np.array([0, 0])
-		# act_high = np.array([800, 500])
-		# self.action_space = spaces.Box(act_low, act_high, dtype=np.float32)
-		#
-		# # Defining observation space
-		# minx, miny = 0.0, 0.0
-		# maxx, maxy = 800.0, 500.0
-		# obs_low = np.array([minx, miny, minx, miny])
-		# obs_high = np.array([maxx, maxy, maxx, maxy])
-		# self.observation_space = spaces.Box(obs_low, obs_high, dtype=np.float32)
-		#
-		# self.seed()
-		# self.viewer = None
-		# self.state = None
-
-	# def seed(self, seed=None):
-	# 	self.np_random, seed = seeding.np_random(seed)
-	# 	return [seed]
 
 	def state(self):
 		return []
@@ -166,6 +146,11 @@ class RobomasterEnv(gym.Env):
 		# enemy_action: a point(x, y) the enemy robot will travel to
 		# """
 		self.game_time += RobomasterEnv.tau
+
+		if self.game_time % 500 == 0:
+			for z in self.defenseBuffZones + self.loadingZones:
+				z.reset()
+
 		for char in self.actables():
 			char.act()
 
