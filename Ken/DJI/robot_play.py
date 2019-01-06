@@ -21,5 +21,5 @@ for _ in range(18000):
 	# path = wp.new_path(env.robot, path)
 	#path_for_enemy = new_path(env.enemy, path_for_enemy)
 	# time.sleep(.1)
-
-env.viewer.close()
+	if env.finished:
+		break

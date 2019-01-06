@@ -12,11 +12,26 @@ class Point:
 	def move(self, dx, dy):
 		return Point(self.x + dx, self.y + dy)
 
+	def move_seg_by_angle(self, angle, dis):
+		angle = toRadian(angle)
+		to = self.move(dis * math.cos(angle), dis * math.sin(angle))
+		return LineSegment(self, to)
+
 	def diff(self, fr):
 		return Vector(self.x - fr.x, self.y - fr.y)
 
+	def floatEquals(self, other):
+		return floatEquals(self.x, other.x) and floatEquals(self.y, other.y)
+
+	def dis(self, to):
+		return math.sqrt((self.x - to.x) ** 2 + (self.y - to.y) ** 2)
+
 	def midpoint(self, other):
 		return Point((self.x + other.x) / 2, (self.y + other.y) / 2)
+
+	def four_split(self, other):
+		mid = self.midpoint(other)
+		return [self.midpoint(mid) + mid + mid.midpoint(other)]
 
 	def toList(self):
 		return [self.x, self.y]
@@ -29,7 +44,7 @@ class Vector(Point):
 
 	def __init__(self, x, y):
 		super().__init__(x, y)
-		self.length = math.sqrt(x ** 2 + y ** 2)
+		self.length = self.dis(Point(0, 0))
 
 	def dot(self, other):
 		return self.x * other.x + self.y * other.y
@@ -52,6 +67,26 @@ class Vector(Point):
 		if deg < 0:
 			deg += 2 * math.pi
 		return deg
+
+
+class LineSegment:
+
+	def __init__(self, point_from, point_to):
+		self.point_from = point_from
+		self.point_to = point_to
+		self.move_vec = point_to.diff(point_from)
+		if point_from.x == point_to.x:
+			self.slope = float('inf')
+		else:
+			self.slope = (point_to.y - point_from.y) / (point_to.x - point_from.x)
+
+	def y_at(self, x):
+		if self.slope == float('inf'):
+			return float('inf')
+		return self.point_from.y + (x - self.point_from.x) * self.slope
+
+	def length(self):
+		return self.point_from.dis(self.point_to)
 
 class Team:
 

@@ -64,11 +64,13 @@ class RobomasterEnv(gym.Env):
 	width = 800
 	height = 500
 	tau = 1
+	full_time = 30000
 
 	def __init__(self):
 
 		# Record time
 		self.game_time = 0
+		self.finished = False
 
 		self.characters = {
 			"obstacles": [],
@@ -84,7 +86,7 @@ class RobomasterEnv(gym.Env):
 		self.my_team, self.enemy_team = BLUE, RED
 
 		# Initialize robots
-		myRobot = AttackRobot(self, BLUE, Point(375, 35), 0)
+		myRobot = AttackRobot(self, BLUE, Point(375, 405), 0)
 		enemyRobot = DummyRobot(self, RED, Point(590, 135), 0)
 		myRobot.load(40)
 		enemyRobot.load(40)
@@ -107,7 +109,7 @@ class RobomasterEnv(gym.Env):
 		(Point(120, 275), BLUE), (Point(580, 125), RED)]]
 
 		self.loadingZones = [LoadingZone(p[0], p[1]) for p in [
-		(Point(350, 0), BLUE), (Point(350, 400), RED)]]
+		(Point(350, 0), RED), (Point(350, 400), BLUE)]]
 
 		self.characters['zones'] = self.startingZones + self.defenseBuffZones + \
 		    self.loadingZones
@@ -137,7 +139,27 @@ class RobomasterEnv(gym.Env):
 	def impermissibles(self, robot):
 		return list(filter(lambda r: not r == robot, self.characters['robots'])) \
 		    + self.characters['obstacles'] \
-		    + list(filter(lambda z: not z.permissble(robot.team), self.characters['zones']))
+		    + list(filter(lambda z: not z.permissble(robot.team), self.loadingZones))
+
+	def direct_reachable(self, robot, to):
+		if robot.center.x == to.x and robot.center.y == to.y:
+			return True
+		helper_rec = Rectangle(robot.bottom_left, robot.center.dis(to) + robot.width, \
+		    robot.height, robot.angleTo(to))
+		return not self.isObstructed(helper_rec, robot)
+
+	def hasWinner(self):
+		my_health, enemy_health = self.my_team.totalHealth(), self.enemy_team.totalHealth()
+		if my_health == 0:
+			return self.enemy_team
+		if enemy_health == 0:
+			return self.my_team
+		if self.game_time == self.full_time:
+			if my_health > enemy_health:
+				return self.my_team
+			if enemy_health > my_health:
+				return self.enemy_team
+			return "DRAW"
 
 	# Moves the game 1 timestep defined by self.tau
 	def step(self):
@@ -145,9 +167,20 @@ class RobomasterEnv(gym.Env):
 		# robot_action: a point(x, y) the robot will travel to
 		# enemy_action: a point(x, y) the enemy robot will travel to
 		# """
+
+		winner = self.hasWinner()
+		if winner:
+			self.finished = True
+			if winner == "DRAW":
+				print('GAME OVER. RESULT: DRAW')
+			else:
+				print('GAME OVER. WINNER IS {0}.'.format(winner.name))
+			self.close()
+			return
+
 		self.game_time += RobomasterEnv.tau
 
-		if self.game_time % 500 == 0:
+		if self.game_time % 3000 == 0:
 			for z in self.defenseBuffZones + self.loadingZones:
 				z.reset()
 
@@ -210,6 +243,16 @@ class RobomasterEnv(gym.Env):
 		for v in robot.vertices:
 			if not self.isLegal(v):
 				return True
+		return False
+
+	# Returns the object blocking the line segment
+	# Returns False if it's not blocked
+	def isBlocked(self, seg, target=None):
+		for block in self.unpenetrables():
+			if block.blocks(seg):
+				if block is target:
+					continue
+				return block
 		return False
 
 	def isLegal(self, point):

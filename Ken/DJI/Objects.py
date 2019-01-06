@@ -44,6 +44,7 @@ class Rectangle(Character):
 		self.setAngle(angle)
 		self.angle_radian = angle / 180 * math.pi
 		self.vertices = self.getVertices()
+		self.sides = self.getSides()
 		self.center = self.getCenter()
 
 	def getVertices(self):
@@ -58,6 +59,9 @@ class Rectangle(Character):
 		top_right = bottom_right.move(height_dx, height_dy)
 
 		return [self.bottom_left, bottom_right, top_right, top_left]
+
+	def getSides(self):
+		return [LineSegment(self.vertices[i], self.vertices[(i + 1) % 4]) for i in range(4)]
 
 	def getCenter(self):
 		return self.bottom_left.midpoint(self.vertices[2])
@@ -75,45 +79,51 @@ class Rectangle(Character):
 	better implementation if possible.
 	"""
 	def contains(self, point):
-		return self.contains_any([point])
-
-	def contains_list(self, points):
 		error_threshold = 0.01
 
 		width_vec = self.vertices[1].diff(self.bottom_left)
 		height_vec = self.vertices[3].diff(self.bottom_left)
 
-		def contains_point(point):
-			goal_vec = point.diff(self.bottom_left)
-			width_proj = goal_vec.project(width_vec)
-			height_proj = goal_vec.project(height_vec)
+		goal_vec = point.diff(self.bottom_left)
+		width_proj = goal_vec.project(width_vec)
+		height_proj = goal_vec.project(height_vec)
 
-			return width_proj.length - self.width < error_threshold and \
-		       height_proj.length - self.height < error_threshold and \
-		       width_proj.dot(width_vec) >= 0 and \
-			   height_proj.dot(height_vec) >= 0
-
-		return [contains_point(p) for p in points]
+		return width_proj.length - self.width < error_threshold and \
+	       height_proj.length - self.height < error_threshold and \
+	       width_proj.dot(width_vec) >= 0 and \
+		   height_proj.dot(height_vec) >= 0
 
 	def contains_any(self, points):
-		return any(self.contains_list(points))
+		for p in points:
+			if self.contains(p):
+				return True
+		return False
 
 	def contains_all(self, points):
-		return all(self.contains_list(points))
+		for p in points:
+			if not self.contains(p):
+				return False
+		return True
 
 	"""
 	Checks if two rectangles intersect
 	IT DOESN'T CONSIDER SOME CASES which I don't think are necessary for our app
 	"""
 	def intersects(self, other):
-		return self.contains_any(other.vertices) or other.contains_any(self.vertices)
+		for side in other.sides:
+			if self.blocks(side):
+				return True
+		return False
 
-	def blocks(self, point, vec):
-		return self.contains(point)
+	def blocks(self, seg):
+		return self.contains(seg.point_to) or self.contains(seg.point_from)
 
-	def angleTo(self, other):
-		my_center, their_center = self.center, other.center
-		return toDegree(their_center.diff(my_center).angle_radian())
+	def angleTo(self, point):
+		if self.center.x == point.x:
+			if self.center.y > point.y:
+				return 270
+			return 90
+		return toDegree(point.diff(self.center).angle_radian())
 
 	"Renders the rectangle depending on type"
 	def render(self, color=None):
@@ -135,13 +145,30 @@ class uprightRectangle(Rectangle):
 		bottom_right = bottom_left.move(self.width, 0)
 		top_right = bottom_right.move(0, self.height)
 		top_left = bottom_left.move(0, self.height)
+		self.left = bottom_left.x
+		self.right = top_right.x
+		self.top = top_right.y
+		self.bottom = bottom_left.y
 		return [bottom_left, bottom_right, top_right, top_left]
 
 	def contains(self, point):
-		bottom_left, top_right = self.bottom_left, self.vertices[2]
 		x, y = point.x, point.y
-		return bottom_left.x <= x and bottom_left.y <= y and \
-		    top_right.x >= x and top_right.y >= y
+		return self.left <= x and self.bottom <= y and self.right >= x and self.top >= y
+
+	def blocks(self, seg):
+		point_from, point_to = seg.point_from, seg.point_to
+		if self.contains(point_from) or self.contains(point_to):
+			return True
+		if (point_from.x < self.left and point_to.x < self.left) or \
+		   (point_from.x > self.right and point_to.x > self.right) or \
+		   (point_from.y < self.bottom and point_to.y < self.bottom) or \
+		   (point_from.y > self.top and point_to.y > self.top):
+		   return False
+
+		left_y, right_y = seg.y_at(self.left), seg.y_at(self.right)
+
+		return not (left_y > self.top and right_y > self.top) and \
+		       not (left_y < self.bottom and right_y < self.bottom)
 
 """
 Impermissible and inpenetrable obstacles are described by class Obstacle
@@ -186,6 +213,7 @@ class LoadingZone(Zone):
 	def __init__(self, bottom_left, team):
 		super().__init__(bottom_left, team)
 		team.loadingZone = self
+		self.loadingPoint = self.center
 
 	fills = 2
 	tolerance_radius = 3
@@ -200,8 +228,8 @@ class LoadingZone(Zone):
 	Checks if the robot is aligned with the bullet supply machinary
 	"""
 	def aligned(self, robot):
-		return floatEquals(self.center.x, robot.center.x, self.tolerance_radius) and \
-		    floatEquals(self.center.y, robot.center.y, self.tolerance_radius)
+		return floatEquals(self.loadingPoint.x, robot.center.x, self.tolerance_radius) and \
+		    floatEquals(self.loadingPoint.y, robot.center.y, self.tolerance_radius)
 
 	def load(self, robot):
 		if self.fills <= 0:
@@ -266,15 +294,13 @@ Describes a bullet. Currently modeled as having constant speed and no volume
 class Bullet:
 
 	damage = 50
-	range = float('inf')
+	range = 300
 
-	def __init__(self, point, dir, team, env):
+	def __init__(self, point, dir, env):
 		self.delay = 0  # Models the delay from firing decision to bullet actually flying
 		self.speed = 25
-		self.travelled = 0
 		self.point = point
 		self.dir = dir / 180 * math.pi
-		self.team = team
 		self.env = env
 		self.active = True
 
@@ -285,16 +311,18 @@ class Bullet:
 			self.delay -= 1
 			return
 		move_point = self.point.move(math.cos(self.dir) * self.speed, math.sin(self.dir) * self.speed)
-		move_vec = move_point.diff(self.point)
-		for block in self.env.unpenetrables():
-			if block.blocks(move_point, move_vec):
-				self.destruct()
-				if block.isRobot():
-					block.reduceHealth(self.damage)
-				return
+		move_seg = LineSegment(self.point, move_point)
 
-		if self.env.isLegal(move_point):
+		blocker = self.env.isBlocked(move_seg)
+		if blocker:
+			self.destruct()
+			if blocker.isRobot():
+				blocker.reduceHealth(self.damage)
+		elif self.env.isLegal(move_point):
 			self.point = move_point
+			self.range -= self.speed
+			if self.range <= 0:
+				self.destruct()
 		else:
 			self.destruct()
 
@@ -321,10 +349,10 @@ class Robot(Rectangle):
 	health = 2000
 	gun_width = height / 4
 	gun_length = width
-	range = float('inf') # More on this later
+	range = 300 # More on this later
 
-	max_forward_speed = 15
-	max_sideway_speed = 10
+	max_forward_speed = 5
+	max_sideway_speed = 3
 	max_rotation_speed = 1.5
 
 	def __init__(self, env, team, bottom_left, angle=0):
@@ -363,6 +391,12 @@ class Robot(Rectangle):
 	def addDefenseBuff(self, time):
 		self.defenseBuffTimer = time * 100
 
+	def getEnemy(self):
+		enemy = self.team.enemy
+		if enemy.robots[0].health == 0:
+			return enemy.robots[1]
+		return enemy.robots[0]
+
 	"""
 	Determine a strategy based on information in self.env
 	"""
@@ -386,27 +420,22 @@ class Robot(Rectangle):
 				action = strategy.decide(self)
 				if action:
 					if not type(action) == list:
-						return self.execute(action)
+						return action.resolve(self)
 					for action_part in action:
-						self.execute(action_part)
+						action.resolve(self)
 		self.defenseBuffTimer = max(0, self.defenseBuffTimer - 1)
 		self.freezeTimer = max(0, self.freezeTimer - 1)
 
-	def execute(self, action):
-		if self.freezeTimer > 0 and not action.frozenOk():
-			return
-		result_rec = action.resolve(self)
-		if result_rec == None or self.env.isObstructed(result_rec, self):
-			return
-		self.setPosition(result_rec)
-
 	def setPosition(self, rec):
-		super().__init__(rec.bottom_left, rec.width, rec.height, rec.angle)
+		Rectangle.__init__(self, rec.bottom_left, rec.width, rec.height, rec.angle)
 		self.gun = self.getGun()
 
 	def getGun(self):
-		bottom_left = self.vertices[1].midpoint(self.bottom_left).midpoint(self.center).midpoint(self.center)
+		bottom_left = self.vertices[1].midpoint(self.center).midpoint(self.center)
 		return Rectangle(bottom_left, self.gun_length, self.gun_width, self.angle)
+
+	def fireLine(self):
+		return self.gun.center.move_seg_by_angle(self.angle, 1000)
 
 	def reduceHealth(self, amount):
 		if self.alive():
@@ -433,4 +462,4 @@ class AttackRobot(Robot):
 
 	def getStrategy(self):
 		target = self.team.enemy.robots[0]
-		return AimAndFire(target)
+		return Attack
