@@ -21,7 +21,7 @@ Clone the repo anywhere, then copy the entire `/DJI` folder into `<python-packag
 
 ## Running
 
-To run the simulation, execute the python script `.../DJI/robot_play.py`. For now you should see a red and a blue robot. The blue robot shall take a few rounds of patrol before coming to a complete stop.
+To run the simulation, execute the python script `.../DJI/robot_play.py`. For now you should see a red and a blue robot. The blue robot shall attack the red robot until the red robot is defeated.
 
 
-Updated 12/21/2018
+Updated 1/12/2019

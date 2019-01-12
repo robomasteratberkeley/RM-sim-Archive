@@ -64,7 +64,6 @@ class AimAndFire(Strategy):
         if floatEquals(robot.angleTo(self.target_robot.center), robot.angle):
             fire_line = LineSegment(robot.gun.center, self.target_robot.center)
             if robot.env.isBlocked(fire_line, self.target_robot):
-                print(robot.env.isBlocked(fire_line, self.target_robot))
                 return
             if fire_line.length() > robot.range:
                 return MoveFrontAndBack(fire_line.length())
@@ -145,15 +144,16 @@ class Fire(Action):
     def frozenOk(self):
         return True
 
-    def simple_resolve(self, robot):
-        if robot.bullet > 0:
+    def resolve(self, robot):
+        if robot.bullet > 0 and robot.cooldown == 0:
             robot.env.characters['bullets'].append(Bullet(robot.gun.center, robot.angle + robot.gun_angle, robot.env))
             robot.bullet -= 1
+            robot.cooldown = robot.max_cooldown
 
 
 class RefillCommand(Action):
 
-    def simple_resolve(self, robot):
+    def resolve(self, robot):
         print(robot.team.name + " team issued reload command!")
         robot.team.loadingZone.load(robot)
 
@@ -166,10 +166,10 @@ class Move(Action):
     def simple_resolve(self, robot):
         if robot.center.floatEquals(self.target_point):
             return
-        if robot.env.direct_reachable(robot, self.target_point):
-            if floatEquals(robot.angleTo(self.target_point), robot.angle):
-                return MoveFrontAndBack(robot.center.dis(self.target_point)).resolve(robot)
-            return Aim(self.target_point).simple_resolve(robot)
+        if floatEquals(robot.angleTo(self.target_point), robot.angle):
+            return MoveFrontAndBack(robot.center.dis(self.target_point)).resolve(robot)
+        return Aim(self.target_point).simple_resolve(robot)
+
 
 
 class MoveFrontAndBack(Action):

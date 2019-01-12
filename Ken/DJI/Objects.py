@@ -273,6 +273,7 @@ class DefenseBuffZone(Zone):
 
 	def activate(self):
 		if self.active:
+			print(self.team.name + " team has activated defense buff!")
 			self.team.addDefenseBuff(30)
 			self.active = False
 
@@ -354,6 +355,7 @@ class Robot(Rectangle):
 	max_forward_speed = 5
 	max_sideway_speed = 3
 	max_rotation_speed = 1.5
+	max_cooldown = 11
 
 	def __init__(self, env, team, bottom_left, angle=0):
 		self.gun_angle = 0
@@ -366,6 +368,7 @@ class Robot(Rectangle):
 		super().__init__(bottom_left, Robot.width, Robot.height, angle)
 		self.gun = self.getGun()
 		self.heat = 0
+		self.cooldown = 0
 		self.bullet = 0
 
 	def render(self):
@@ -409,6 +412,9 @@ class Robot(Rectangle):
 	"""
 	def act(self):
 		if self.alive():
+			self.defenseBuffTimer = max(0, self.defenseBuffTimer - 1)
+			self.freezeTimer = max(0, self.freezeTimer - 1)
+			self.cooldown = max(0, self.cooldown - 1)
 			for z in self.env.defenseBuffZones:
 				if z.contains_all(self.vertices):
 					z.touch(self)
@@ -423,8 +429,6 @@ class Robot(Rectangle):
 						return action.resolve(self)
 					for action_part in action:
 						action.resolve(self)
-		self.defenseBuffTimer = max(0, self.defenseBuffTimer - 1)
-		self.freezeTimer = max(0, self.freezeTimer - 1)
 
 	def setPosition(self, rec):
 		Rectangle.__init__(self, rec.bottom_left, rec.width, rec.height, rec.angle)

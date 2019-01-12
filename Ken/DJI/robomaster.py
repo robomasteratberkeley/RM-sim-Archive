@@ -86,8 +86,8 @@ class RobomasterEnv(gym.Env):
 		self.my_team, self.enemy_team = BLUE, RED
 
 		# Initialize robots
-		myRobot = AttackRobot(self, BLUE, Point(375, 405), 0)
-		enemyRobot = DummyRobot(self, RED, Point(590, 135), 0)
+		myRobot = AttackRobot(self, BLUE, Point(170, 295), 0)
+		enemyRobot = DummyRobot(self, RED, Point(250, 110), 0)
 		myRobot.load(40)
 		enemyRobot.load(40)
 		self.characters['robots'] = [myRobot, enemyRobot]
@@ -141,12 +141,14 @@ class RobomasterEnv(gym.Env):
 		    + self.characters['obstacles'] \
 		    + list(filter(lambda z: not z.permissble(robot.team), self.loadingZones))
 
-	def direct_reachable(self, robot, to):
-		if robot.center.x == to.x and robot.center.y == to.y:
+	def direct_reachable_forward(self, robot, to):
+		if floatEquals(robot.center.x, to.x) and floatEquals(robot.center.y, to.y):
 			return True
 		helper_rec = Rectangle(robot.bottom_left, robot.center.dis(to) + robot.width, \
 		    robot.height, robot.angleTo(to))
 		return not self.isObstructed(helper_rec, robot)
+
+	# def direct_reachable_sideways
 
 	def hasWinner(self):
 		my_health, enemy_health = self.my_team.totalHealth(), self.enemy_team.totalHealth()
