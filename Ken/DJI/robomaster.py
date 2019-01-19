@@ -90,7 +90,7 @@ class RobomasterEnv(gym.Env):
 		enemyRobot = ManualControlRobot("OSPWADBR", self, RED, Point(250, 110), 0)
 		myRobot.load(5)
 		enemyRobot.load(40)
-		self.characters['robots'] = [myRobot, myRobot2, enemyRobot, enemyRobot2]
+		self.characters['robots'] = [myRobot, enemyRobot]
 		for i in range(len(self.characters['robots'])):
 			self.characters['robots'][i].id = i
 
