@@ -87,10 +87,10 @@ class RobomasterEnv(gym.Env):
 
 		# Initialize robots
 		myRobot = AttackRobot(self, BLUE, Point(170, 295), 0)
-		enemyRobot = DummyRobot(self, RED, Point(250, 110), 0)
-		myRobot.load(40)
+		enemyRobot = ManualControlRobot("OSPWADBR", self, RED, Point(250, 110), 0)
+		myRobot.load(5)
 		enemyRobot.load(40)
-		self.characters['robots'] = [myRobot, enemyRobot]
+		self.characters['robots'] = [myRobot, myRobot2, enemyRobot, enemyRobot2]
 		for i in range(len(self.characters['robots'])):
 			self.characters['robots'][i].id = i
 
@@ -141,6 +141,9 @@ class RobomasterEnv(gym.Env):
 		    + self.characters['obstacles'] \
 		    + list(filter(lambda z: not z.permissble(robot.team), self.loadingZones))
 
+	"""
+	BUGGY. DON'T USE
+	"""
 	def direct_reachable_forward(self, robot, to):
 		if floatEquals(robot.center.x, to.x) and floatEquals(robot.center.y, to.y):
 			return True

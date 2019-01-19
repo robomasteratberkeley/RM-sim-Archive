@@ -1,6 +1,8 @@
 
 from Objects import *
 from utils import *
+from action import *
+import keyboard
 
 """
 All strategies shall implement the abstract class Strategy
@@ -66,7 +68,8 @@ class AimAndFire(Strategy):
             if robot.env.isBlocked(fire_line, self.target_robot):
                 return
             if fire_line.length() > robot.range:
-                return MoveFrontAndBack(fire_line.length())
+                return StepForward(robot.angle, min(robot.center.dis(self.target_robot.center), \
+                    robot.max_forward_speed))
             return Fire()
         return Aim(self.target_robot.center)
 
@@ -86,109 +89,34 @@ class Attack(Strategy):
             return Move(loader.loadingPoint)
 
 
-"""
-An Action is a command to the robot
+class Manual(Strategy):
 
-It changes the state of the robot upon resolve(robot)
-"""
-class Action:
+    def __init__(self, controls):
+        self.controls = controls
+        self.left = controls[0]
+        self.down = controls[1]
+        self.right = controls[2]
+        self.up = controls[3]
+        self.turnleft = controls[4]
+        self.turnright = controls[5]
+        self.fire = controls[6]
+        self.refill = controls[7]
 
-    def frozenOk():
-        return False
-
-    # Returns True if the Action is successfully resolved
-    # Returns False if it didn't have any effect
-    def resolve(self, robot):
-        if robot.freezeTimer > 0 and not self.frozenOk():
-            return False
-        result_rec = self.simple_resolve(robot)
-        if not result_rec:
-            return True
-        if robot.env.isObstructed(result_rec, robot):
-        	return False
-        robot.setPosition(result_rec)
-        return True
-
-
-class Rotate(Action):
-
-    def __init__(self, angle):
-        self.angle = angle
-
-    def simple_resolve(self, robot):
-        if floatEquals(robot.angle, self.angle):
-        	return
-        diff = self.angle - robot.angle
-        min_dis = min(diff, diff + 360, diff - 360, key = lambda n: abs(n))
-        if min_dis > 0:
-        	change = min(robot.max_rotation_speed, min_dis)
-        else:
-        	change = max(-robot.max_rotation_speed, min_dis)
-
-        helper_rec = Rectangle(robot.center, robot.width / 2, robot.height / 2, robot.angle + 180 + change)
-
-        return Rectangle(helper_rec.vertices[2], robot.width, robot.height, robot.angle + change)
-
-
-class Aim(Action):
-
-    def __init__(self, target_point):
-        self.target_point = target_point
-
-    def simple_resolve(self, robot):
-        return Rotate(robot.angleTo(self.target_point)).simple_resolve(robot)
-
-
-class Fire(Action):
-
-    def frozenOk(self):
-        return True
-
-    def resolve(self, robot):
-        if robot.bullet > 0 and robot.cooldown == 0:
-            robot.env.characters['bullets'].append(Bullet(robot.gun.center, robot.angle + robot.gun_angle, robot.env))
-            robot.bullet -= 1
-            robot.cooldown = robot.max_cooldown
-
-
-class RefillCommand(Action):
-
-    def resolve(self, robot):
-        print(robot.team.name + " team issued reload command!")
-        robot.team.loadingZone.load(robot)
-
-
-class Move(Action):
-
-    def __init__(self, target_point):
-        self.target_point = target_point
-
-    def simple_resolve(self, robot):
-        if robot.center.floatEquals(self.target_point):
-            return
-        if floatEquals(robot.angleTo(self.target_point), robot.angle):
-            return MoveFrontAndBack(robot.center.dis(self.target_point)).resolve(robot)
-        return Aim(self.target_point).simple_resolve(robot)
-
-
-
-class MoveFrontAndBack(Action):
-
-    def __init__(self, dis):
-        self.dis = dis
-
-    def resolve(self, robot):
-        speed = robot.max_forward_speed
-        dis = int(self.dis)
-        if dis > speed:
-            dis = speed
-        for i in range(dis):
-            if not CreepForward().resolve(robot):
-                return i
-
-
-class CreepForward(Action):
-
-    def simple_resolve(self, robot):
-        return Rectangle(robot.bottom_left.move(math.cos(toRadian(robot.angle)), \
-            math.sin(toRadian(robot.angle))), robot.width, robot.height, robot.angle)
+    def decide(self, robot):
+        if keyboard.is_pressed(self.turnleft):
+            return RotateLeft(robot.max_rotation_speed)
+        if keyboard.is_pressed(self.turnright):
+            return RotateRight(robot.max_rotation_speed)
+        if keyboard.is_pressed(self.up):
+            return StepForward(robot.angle, robot.max_forward_speed)
+        if keyboard.is_pressed(self.down):
+            return StepBackward(robot.angle, robot.max_forward_speed)
+        if keyboard.is_pressed(self.left):
+            return StepLeft(robot.angle, robot.max_forward_speed)
+        if keyboard.is_pressed(self.right):
+            return StepRight(robot.angle, robot.max_forward_speed)
+        if keyboard.is_pressed(self.fire):
+            return Fire()
+        if keyboard.is_pressed(self.refill):
+            return RefillCommand()
+        return None

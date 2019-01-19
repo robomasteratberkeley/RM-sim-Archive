@@ -7,6 +7,7 @@ import math
 import heapq
 import cv2
 import rendering
+import keyboard
 
 from utils import *
 from strategy import *
@@ -67,11 +68,7 @@ class Rectangle(Character):
 		return self.bottom_left.midpoint(self.vertices[2])
 
 	def setAngle(self, deg):
-		if deg < 0:
-			return self.setAngle(deg + 360)
-		if deg >= 360:
-			return self.setAngle(deg - 360)
-		self.angle = deg
+		self.angle = deg % 360
 		self.angle_radian = deg / 180 * math.pi
 
 	"""
@@ -352,9 +349,10 @@ class Robot(Rectangle):
 	gun_length = width
 	range = 300 # More on this later
 
-	max_forward_speed = 5
-	max_sideway_speed = 3
+	max_forward_speed = 1.5
+	max_sideway_speed = 1
 	max_rotation_speed = 1.5
+	max_gun_rotation_speed = 6
 	max_cooldown = 11
 
 	def __init__(self, env, team, bottom_left, angle=0):
@@ -436,7 +434,7 @@ class Robot(Rectangle):
 
 	def getGun(self):
 		bottom_left = self.vertices[1].midpoint(self.center).midpoint(self.center)
-		return Rectangle(bottom_left, self.gun_length, self.gun_width, self.angle)
+		return Rectangle(bottom_left, self.gun_length, self.gun_width, self.angle + self.gun_angle)
 
 	def fireLine(self):
 		return self.gun.center.move_seg_by_angle(self.angle, 1000)
@@ -467,3 +465,13 @@ class AttackRobot(Robot):
 	def getStrategy(self):
 		target = self.team.enemy.robots[0]
 		return Attack
+
+
+class ManualControlRobot(Robot):
+
+	def __init__(self, controls, env, team, bottom_left, angle=0):
+		super().__init__(env, team, bottom_left, angle)
+		self.controls = controls
+
+	def getStrategy(self):
+		return Manual(self.controls)
